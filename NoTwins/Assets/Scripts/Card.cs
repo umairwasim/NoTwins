@@ -21,6 +21,7 @@ public class Card : MonoBehaviour
         cardButton.onClick.AddListener(OnButtonPressed);
 
         OnCardClick = OnClick;
+        gameObject.SetActive(true);
     }
 
     public bool HasSameSprite(Card card)

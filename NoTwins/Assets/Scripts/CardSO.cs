@@ -4,6 +4,6 @@ using UnityEngine;
 public class CardSO : ScriptableObject
 {
     public string cardName;
+    public Sprite cardImage;
     public Sprite backSprite;
-    public Sprite frontSprite;
 }
