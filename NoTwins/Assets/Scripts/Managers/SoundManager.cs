@@ -6,7 +6,8 @@ public class SoundManager : MonoBehaviour
 
     private static bool isSoundPlaying;
 
-    [Header("Audio Sources"), SerializeField] private AudioSource musicSource;
+    [Header("Audio Sources")] 
+    [SerializeField] private AudioSource musicSource;
     [SerializeField] private AudioSource soundsSource;
 
     [Header("Audio Clips")]

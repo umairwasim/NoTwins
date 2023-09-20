@@ -9,15 +9,14 @@ public class CardManager : MonoBehaviour
 {
     public static CardManager Instance;
 
-    public event Action<int> OnUpdateTurns;
-    public event Action<int> OnUpdateScore;
-
+    [Header("Card")]
     [SerializeField] private CardDataSO cardDataSO;
     [SerializeField] private Card cardPrefab;
+
+    [Header("Grid")]
     [SerializeField] private Transform parent;
     [SerializeField] private GridLayoutGroup gridLayoutGroup;
     [SerializeField] private ContentSizeFitter contentSizeFitter;
-    //[SerializeField] private List<Sprite> allSprites = new();
 
     private List<Card> allCards = new();
     private Card selectedCard = null;
@@ -32,6 +31,9 @@ public class CardManager : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+
+        //Initialize Save System
+        SaveSystem.Initialize();
     }
 
     public void Initialize()
@@ -40,20 +42,63 @@ public class CardManager : MonoBehaviour
         gridLayoutGroup.enabled = true;
         contentSizeFitter.enabled = true;
         ResetData();
-        SetupCards();
     }
 
-    #region Setup and Hide Cards
-    public void SetupCardsData(float rows, float cols)
+    #region Save/Load Data
+    public void SaveData()
     {
-        cardDataSO.rows = (int)rows;
-        cardDataSO.columns = (int)cols;
-        //gridLayoutGroup.constraintCount = cardDataSO.rows;
-        //gridLayoutGroup.enabled = true;
-        //contentSizeFitter.enabled = true;
-        //SetupCards();
+        SavePlayerData saveObject = new();
+
+        saveObject.turns = turns;
+        saveObject.score = finalScore;
+        saveObject.comboMultipler = comboMultiplier;
+        saveObject.matchCount = matchCount;
+        saveObject.rows = cardDataSO.rows;
+        saveObject.columns = cardDataSO.columns;
+
+        for (int i = 0; i < allCards.Count; i++)
+        {
+            saveObject.cardPositions.Add(allCards[i].faceUpSprite);
+            saveObject.isMatched.Add(allCards[i].isMatched);
+        }
+
+        string dataToSave = JsonUtility.ToJson(saveObject);
+        SaveSystem.SaveData(dataToSave);
     }
 
+    //Load Saved Data from SavePlayerData
+    public void LoadData()
+    {
+        string saveString = SaveSystem.LoadData();
+        if (saveString != null)
+        {
+            SavePlayerData saveObject = JsonUtility.FromJson<SavePlayerData>(saveString);
+            Card card;
+
+            turns = saveObject.turns;
+            finalScore = saveObject.score;
+            comboMultiplier = saveObject.comboMultipler;
+            matchCount = saveObject.matchCount;
+            cardDataSO.rows = saveObject.rows;
+            cardDataSO.columns = saveObject.columns;
+
+            //Update UI
+            GameManager.Instance.OnUpdateGameUI(finalScore, turns);
+
+            //Spawn and initialize with saved card data
+            for (int i = 0; i < saveObject.cardPositions.Count; i++)
+            {
+                card = Instantiate(cardPrefab, parent);
+                allCards.Add(card);
+                card.Initialize(saveObject.cardPositions[i], OnCardClicked, saveObject.isMatched[i]);
+            }
+            StartCoroutine(HideCardsRoutine());
+        }
+        else
+        {
+            Debug.Log("No save string found");
+        }
+    }
     private void ResetData()
     {
         selectedCard = null;
@@ -64,16 +109,23 @@ public class CardManager : MonoBehaviour
         comboMultiplier = 1;
         allCards.Clear();
     }
+    #endregion
 
-    private void SetupCards()
+    #region Setup, Show/Hide Cards
+    public void SetupCardsData(float rows, float cols)
     {
-        //selectedCard = null;
-        //matchCount = 0;
+        cardDataSO.rows = (int)rows;
+        cardDataSO.columns = (int)cols;
+    }
+
+    public void SetupCards()
+    {
         int rand;
         int totalCardsCount = cardDataSO.rows * cardDataSO.columns;
         totalCardsCount -= (totalCardsCount % 2);
         Sprite[] allShuffledSps = new Sprite[totalCardsCount];
 
+        #region Randon Sprites placement
         for (int i = 0; i < totalCardsCount / 2; i++)
         {
             Sprite randSprite = cardDataSO.allSprites[Random.Range(0, cardDataSO.allSprites.Count)];
@@ -89,7 +141,9 @@ public class CardManager : MonoBehaviour
                 }
             }
         }
+        #endregion
 
+        #region Instantiate Cards
         for (int i = 0; i < allShuffledSps.Length; i++)
         {
             Card card;
@@ -111,6 +165,7 @@ public class CardManager : MonoBehaviour
 
             card.Initialize(allShuffledSps[i], OnCardClicked);
         }
+        #endregion
 
         StartCoroutine(HideCardsRoutine());
     }
@@ -128,6 +183,7 @@ public class CardManager : MonoBehaviour
     }
     #endregion
 
+    #region Card Selection
     private void OnCardClicked(Card card)
     {
         if (animationInProgress)
@@ -158,7 +214,10 @@ public class CardManager : MonoBehaviour
                 //Hide non-matching cards
                 StartCoroutine(DisableNonMatchingCards(selectedCard, card));
             }
-            OnUpdateTurns?.Invoke(++turns);
+
+            turns++;
+            GameManager.Instance.OnUpdateGameUI(finalScore, turns);
+            //OnUpdateTurns?.Invoke(++turns);
         }
     }
 
@@ -182,21 +241,24 @@ public class CardManager : MonoBehaviour
         yield return new WaitForSeconds(1f);
         firstCard.SetCardMatched();
         secondCard.SetCardMatched();
-        CalculateScore();
+        CalculateFinalScore();
+
         selectedCard = null;
         animationInProgress = false;
         matchCount += 2;
-        Debug.Log("allCards  " + allCards.Count + " matchCount " + matchCount);
+
         if (allCards.Count == matchCount)
         {
+            yield return new WaitForSeconds(0.5f);
             GameManager.Instance.GameWon();
         }
     }
+    #endregion
 
-    private void CalculateScore()
+    private void CalculateFinalScore()
     {
         scorePerMatch++;
         finalScore = scorePerMatch * comboMultiplier;
-        OnUpdateScore?.Invoke(finalScore);
+        GameManager.Instance.OnUpdateGameUI(finalScore, turns);
     }
 }

@@ -1,19 +1,24 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
+using System.Collections;
 
 public class Card : MonoBehaviour
 {
     public bool isFaceUp = false;
+    public bool isMatched = false;
 
     [SerializeField] private Sprite faceDownSprite;
     [SerializeField] private Image cardImage;
     [SerializeField] private Button cardButton;
 
     private Action<Card> OnCardClick;
-    private Sprite faceUpSprite;
+    public Sprite faceUpSprite;
 
-    public void Initialize(Sprite faceUpSp, Action<Card> OnClick)
+    public Sprite GetFaceUpSprite() => faceUpSprite;
+
+    public void Initialize(Sprite faceUpSp, Action<Card> OnClick, bool isActive = false)
     {
         faceUpSprite = faceUpSp;
         SetCardFaceUp();
@@ -21,8 +26,14 @@ public class Card : MonoBehaviour
         cardButton.onClick.AddListener(OnButtonPressed);
 
         OnCardClick = OnClick;
-        gameObject.SetActive(true);
+
+        if (!isActive)
+            gameObject.SetActive(true);
+        else
+            StartCoroutine(HideMatchedCardRoutine());
+        // SetCardMatched();
     }
+
 
     public bool HasSameSprite(Card card)
     {
@@ -48,17 +59,27 @@ public class Card : MonoBehaviour
     {
         isFaceUp = true;
         cardImage.sprite = faceUpSprite;
+        cardImage.transform.DOScale(1.2f, 0.25f).SetEase(Ease.Flash);
     }
 
     public void SetCardFaceDown()
     {
         isFaceUp = false;
         cardImage.sprite = faceDownSprite;
+        cardImage.transform.DOScale(1f, 0.25f);
+
+    }
+
+    IEnumerator HideMatchedCardRoutine()
+    {
+        yield return new WaitForSeconds(2f);
+        SetCardMatched();
     }
 
     public void SetCardMatched()
     {
-        gameObject.SetActive(false);
+        isMatched = true;
+        cardImage.DOFade(0f, 0.5f).OnComplete(() => gameObject.SetActive(false));
     }
 }
 

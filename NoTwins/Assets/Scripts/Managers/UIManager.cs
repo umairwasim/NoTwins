@@ -1,10 +1,7 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.UI;
+using DG.Tweening;
 
 public enum MenuState
 {
@@ -15,7 +12,6 @@ public enum MenuState
 
 public class UIManager : MonoBehaviour
 {
-
     public MenuState menuState = MenuState.Main;
 
     [Header("Menus")]
@@ -24,39 +20,79 @@ public class UIManager : MonoBehaviour
     [Header("Buttons")]
     [SerializeField] private Button playButton;
     [SerializeField] private Button nextButton;
+    [SerializeField] private Button saveButton;
+    [SerializeField] private Button loadButton;
 
     [Header("Texts")]
     [SerializeField] private TMP_Text scoreText;
     [SerializeField] private TMP_Text turnsText;
+    [SerializeField] private TMP_Text rowsCountText;
+    [SerializeField] private TMP_Text columnsCountText;
 
     [Header("Sliders")]
     [SerializeField] private Slider rowsSlider;
     [SerializeField] private Slider columnsSlider;
-    [SerializeField] private TMP_Text rowsCountText;
-    [SerializeField] private TMP_Text columnsCountText;
 
     private int score;
     private int turns;
 
     private void Start()
     {
-        // ActivateMenu(MenuState.Main);
-        CardManager.Instance.OnUpdateScore += CardManager_OnUpdateScore;
-        CardManager.Instance.OnUpdateTurns += CardManager_OnUpdateTurns;
+        GameManager.Instance.OnUpdateUI += GameManager_OnUpdateUI;
+
         playButton.onClick.AddListener(PlayButtonPressed);
         nextButton.onClick.AddListener(NextButtonPressed);
+        saveButton.onClick.AddListener(SaveButtonPressed);
+        loadButton.onClick.AddListener(LoadButtonPressed);
+
         rowsSlider.onValueChanged.AddListener(delegate { OnRowsSliderValueChanged(); });
         columnsSlider.onValueChanged.AddListener(delegate { OnColumnsSliderValueChanged(); });
+
+        //only show load button if save file exists
+        if (SaveSystem.FileExists())
+            loadButton.gameObject.SetActive(true);
+        else
+            loadButton.gameObject.SetActive(false);
     }
 
     private void OnDestroy()
     {
-        CardManager.Instance.OnUpdateScore -= CardManager_OnUpdateScore;
-        CardManager.Instance.OnUpdateTurns -= CardManager_OnUpdateTurns;
+        GameManager.Instance.OnUpdateUI -= GameManager_OnUpdateUI;
+
         playButton.onClick.RemoveListener(PlayButtonPressed);
         nextButton.onClick.RemoveListener(NextButtonPressed);
+        saveButton.onClick.RemoveListener(SaveButtonPressed);
+        loadButton.onClick.RemoveListener(LoadButtonPressed);
+
         rowsSlider.onValueChanged.RemoveListener(delegate { OnRowsSliderValueChanged(); });
         columnsSlider.onValueChanged.RemoveListener(delegate { OnColumnsSliderValueChanged(); });
+    }
+
+    public void ActivateMenu(MenuState menuToActivate)
+    {
+        for (int i = 0; i < menus.Length; i++)
+            menus[i].SetActive(false);
+
+        menus[(int)menuToActivate].SetActive(true);
+
+        if ((int)menuToActivate != 0)
+            menus[(int)menuToActivate].transform.DOPunchScale(Vector3.one * 1.5f, 0.2f);
+    }
+
+    public void ResetUI()
+    {
+        turnsText.text = "TURNS: " + 0;
+        scoreText.text = "SCORE: " + 0;
+    }
+
+    #region UI Listeners
+
+    private void GameManager_OnUpdateUI(int arg1, int arg2)
+    {
+        score = arg1;
+        turns = arg2;
+        scoreText.text = "SCORE: " + score;
+        turnsText.text = "TURNS: " + turns;
     }
 
     private void OnRowsSliderValueChanged()
@@ -68,26 +104,9 @@ public class UIManager : MonoBehaviour
     {
         columnsCountText.text = columnsSlider.value.ToString();
     }
+    #endregion
 
-    private void CardManager_OnUpdateTurns(int obj)
-    {
-        turns = obj;
-        turnsText.text = "TURNS: " + turns;
-    }
-
-    private void CardManager_OnUpdateScore(int obj)
-    {
-        score = obj;
-        scoreText.text = "SCORE: " + score;
-    }
-
-    public void ActivateMenu(MenuState menuToActivate)
-    {
-        for (int i = 0; i < menus.Length; i++)
-            menus[i].SetActive(false);
-
-        menus[(int)menuToActivate].SetActive(true);
-    }
+    #region Activate Menus
 
     public void ActivateMainMenu()
     {
@@ -105,19 +124,30 @@ public class UIManager : MonoBehaviour
     {
         menuState = MenuState.Won;
         ActivateMenu(menuState);
+        ResetUI();
     }
+    #endregion
 
+    #region Buttons 
     public void PlayButtonPressed()
     {
-        CardManager.Instance.SetupCardsData(rowsSlider.value, columnsSlider.value);
-        SoundManager.Instance.PlaySound(SoundManager.Instance.buttonClickSound);
+        GameManager.Instance.OnSetupCardsData(rowsSlider.value, columnsSlider.value);
         GameManager.Instance.PlayGame();
     }
 
     public void NextButtonPressed()
     {
-        SoundManager.Instance.PlaySound(SoundManager.Instance.buttonClickSound);
         GameManager.Instance.PlayGame();
     }
 
+    public void SaveButtonPressed()
+    {
+        GameManager.Instance.SaveData();
+    }
+
+    public void LoadButtonPressed()
+    {
+        GameManager.Instance.LoadGame();
+    }
+    #endregion
 }

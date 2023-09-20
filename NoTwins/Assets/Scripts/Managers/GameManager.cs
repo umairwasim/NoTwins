@@ -1,6 +1,4 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public enum GameState
@@ -8,12 +6,16 @@ public enum GameState
     Main,
     Gameplay,
     Won,
+    LoadGame,
 }
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
 
+    public event Action<int, int> OnUpdateUI;
+
+    [Header("Manager Reference")]
     [SerializeField] private UIManager uiManager;
     [SerializeField] private CardManager cardManager;
 
@@ -44,6 +46,9 @@ public class GameManager : MonoBehaviour
             case GameState.Won:
                 OnWonMenuSelected();
                 break;
+            case GameState.LoadGame:
+                OnResumeGameplayMenuSelected();
+                break;
         }
     }
 
@@ -57,6 +62,14 @@ public class GameManager : MonoBehaviour
     {
         uiManager.ActivateGamePlayMenu();
         cardManager.Initialize();
+        cardManager.SetupCards();
+    }
+
+    private void OnResumeGameplayMenuSelected()
+    {
+        uiManager.ActivateGamePlayMenu();
+        cardManager.Initialize();
+        cardManager.LoadData();
     }
 
     private void OnWonMenuSelected()
@@ -69,7 +82,15 @@ public class GameManager : MonoBehaviour
     public void PlayGame()
     {
         ChangeGameState(GameState.Gameplay);
+        SoundManager.Instance.PlaySound(SoundManager.Instance.buttonClickSound);
     }
+
+    public void LoadGame()
+    {
+        ChangeGameState(GameState.LoadGame);
+        SoundManager.Instance.PlaySound(SoundManager.Instance.buttonClickSound);
+    }
+
 
     public void GameWon()
     {
@@ -77,9 +98,25 @@ public class GameManager : MonoBehaviour
     }
     #endregion
 
-    //public void RestartGame()
-    //{
-    //    ChangeGameState(GameState.Won);
-    //    uiManager.PlayButtonPressed();
-    //}
+    public void OnUpdateGameUI(int score = 0, int turns = 0)
+    {
+        OnUpdateUI?.Invoke(score, turns);
+    }
+
+    public void OnSetupCardsData(float rows, float cols)
+    {
+        cardManager.SetupCardsData(rows, cols);
+    }
+
+    #region Save / Load Data
+    public void SaveData()
+    {
+        cardManager.SaveData();
+    }
+
+    public void LoadData()
+    {
+        cardManager.LoadData();
+    }
+    #endregion
 }
